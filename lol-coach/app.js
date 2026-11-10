@@ -1,4 +1,5 @@
 import { EDITORIAL_DATE, LESSONS, ROLES, SCENARIOS, SOURCES } from "./data.js";
+import { setupPWA } from "./pwa.js";
 import { STORAGE_KEY, MAX_IMPORT_BYTES, GOALS, defaultState, parseBackup, validateState, youtubeURL, schedule, dueCards, reviewStats } from "./model.js";
 
 const $ = selector => document.querySelector(selector);
@@ -390,7 +391,7 @@ function patchPanel() {
     if (patchPending || (patchResult && !force)) { update(); return; }
     patchPending = true; update();
     try {
-      const response = await fetch("/api/patch", { signal: AbortSignal.timeout(6000), cache: "no-store" });
+      const response = await fetch(new URL("./api/patch", import.meta.url), { signal: AbortSignal.timeout(6000), cache: "no-store" });
       if (!response.ok) throw new Error("Unavailable");
       const result = await response.json();
       if (!["available", "unavailable"].includes(result.status) || typeof result.checked_at !== "string" || (result.status === "available" && !/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(result.version))) throw new Error("Invalid response");
@@ -398,7 +399,7 @@ function patchPanel() {
     } catch { patchResult = { status: "unavailable" }; }
     finally { patchPending = false; update(); }
   }
-  box.append(info, h("p", { className: "tiny" }, "Cache serveur : 1 h si disponible, 1 min après échec. La date de consultation ne signifie pas que les leçons, vidéos ou pages externes ont été vérifiées."), h("div", { className: "actions form-actions" }, refresh, external("Notes officielles", SOURCES[0].url)));
+  box.append(info, h("p", { className: "tiny" }, "API optionnelle du serveur local uniquement : indisponible sur un hébergement statique ou hors ligne, jamais mise en cache sur l'appareil. Cache serveur : 1 h si disponible, 1 min après échec. La date de consultation ne signifie pas que les leçons, vidéos ou pages externes ont été vérifiées."), h("div", { className: "actions form-actions" }, refresh, external("Notes officielles", SOURCES[0].url)));
   fetchPatch(); return box;
 }
 
@@ -407,6 +408,14 @@ function helpPage() {
     panel(h("div", { className: "help-copy" }, h("h2", {}, "Démarrer & construire ta routine"),
       h("p", {}, "Dans un terminal, depuis le dossier lol-coach : ", h("code", {}, "uv run server.py"), ". Ouvre ", h("code", {}, "http://127.0.0.1:8765"), ". Pour un autre port : ", h("code", {}, "uv run server.py --port 8766"), ". Arrêt : Ctrl+C. Python 3.14+, aucune dépendance Python additionnelle."),
       h("p", {}, "Lancement depuis n'importe où : ", h("code", {}, "uv run --project /chemin/absolu/lol-coach /chemin/absolu/lol-coach/server.py"), ". Utilise l'adresse du serveur, pas un fichier HTML ouvert directement. Aucun .env ni aucune clé API n'est nécessaire."),
+      h("h3", {}, "Installer sur Android"),
+      h("p", {}, "Aucune URL publique n'est actuellement fournie ou publiée. Le serveur 127.0.0.1 est réservé à l'ordinateur qui l'exécute : ce n'est pas un lien accessible depuis ton téléphone. Il ne faut pas élargir son écoute pour installer l'application."),
+      h("p", {}, "Une fois les fichiers publics hébergés en HTTPS : ouvre cette adresse dans Chrome sur Android, en ligne. Utilise « Installer sur cet appareil » si proposé, ou Chrome ⋮ → Installer l'application / Ajouter à l'écran d'accueil. Selon Chrome, ce menu peut proposer un simple raccourci. Une demande annulée n'installe rien. Ouvre l'icône pour vérifier le mode autonome."),
+      h("h3", {}, "Préparer le hors ligne & les mises à jour"),
+      h("p", {}, "Attends la fin du téléchargement initial, puis utilise « Recharger après sauvegarde » si proposé. Ne coupe le réseau qu'après le message « Hors ligne prêt ». Leçons, cartes, exercices, journal et exports fonctionnent alors sans réseau ; vidéos, liens externes et version Data Dragon nécessitent une connexion. Aucun contenu tiers ni réponse API n'est conservé par le service worker."),
+      h("p", {}, "Une mise à jour attend la fermeture de tous les onglets et fenêtres Nexus : enregistre les formulaires et exporte avant de fermer, puis rouvre l'application. Aucun rechargement automatique ne détruit tes saisies. Le navigateur peut refuser ou évincer le cache et les données locales : le hors ligne n'est pas une sauvegarde. Exporte régulièrement et avant tout changement d'adresse ou d'appareil."),
+      h("h3", {}, "Hébergement HTTPS pour développeurs"),
+      h("p", {}, "Publie uniquement les fichiers publics autonomes de lol-coach : index.html, styles.css, app.js, data.js, model.js, pwa.js, sw.js, favicon.svg, manifest.webmanifest, icon-192.png, icon-512.png et icon-maskable-512.png. Jamais le dépôt entier, .env, .git, fichiers Python ou tests. Aucun déploiement n'est configuré ici. Les chemins relatifs permettent un sous-dossier (avec URL terminée par /). Sers les bons types MIME, les fichiers de façon atomique et sw.js sans cache HTTP durable ; incrémente sa VERSION à chaque changement du shell. L'API Python n'existe pas sur un hébergement statique : le patch y reste indisponible."),
       h("p", {}, "1. Choisis ton rôle (ADC par défaut ; Mid en secondaire). 2. Déclare ton rang dans le parcours, Silver ou Gold selon ton point de départ. 3. Lis une leçon et teste son idée. 4. Révise tes cartes, essaie les deux simulations. 5. Après la partie, saisis une review et une action observable."),
       h("h3", {}, "Ce que les chiffres signifient"),
       h("p", {}, "Les statistiques viennent uniquement des reviews manuelles du rôle sélectionné : CS à 10 min et morts, moyenne des 5 dernières. La tendance CS compare les 5 dernières aux 5 précédentes après 10 entrées. Un zéro « non relevé » compte : relève de manière cohérente. Les résultats des mini-jeux ne prédisent ni ton MMR ni ton rang. Les leçons validées ne certifient pas un niveau."),
@@ -472,3 +481,4 @@ window.addEventListener("storage", event => {
   if (event.key === STORAGE_KEY) warn("La sauvegarde a changé dans un autre onglet. Exporte tes changements puis recharge avant de continuer pour éviter un écrasement.", "conflict");
 });
 render();
+setupPWA();

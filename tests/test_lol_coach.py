@@ -3,6 +3,7 @@
 import importlib.util
 import json
 import shutil
+import struct
 import subprocess
 import threading
 from http.client import HTTPConnection
@@ -50,6 +51,12 @@ def request(port, path, *, method="GET", host=None):
         "/model.js",
         "/index.html",
         "/favicon.svg",
+        "/pwa.js",
+        "/sw.js",
+        "/manifest.webmanifest",
+        "/icon-192.png",
+        "/icon-512.png",
+        "/icon-maskable-512.png",
     ],
 )
 def test_static_allowlist_serves_app_with_security_headers(local_server, path):
@@ -60,7 +67,38 @@ def test_static_allowlist_serves_app_with_security_headers(local_server, path):
     assert headers["Cache-Control"] == "no-store"
     assert "default-src 'self'" in headers["Content-Security-Policy"]
     assert "frame-src 'none'" in headers["Content-Security-Policy"]
+    assert "worker-src 'self'" in headers["Content-Security-Policy"]
+    assert "manifest-src 'self'" in headers["Content-Security-Policy"]
     assert "Access-Control-Allow-Origin" not in headers
+
+
+def test_android_manifest_and_real_png_icons(local_server):
+    status, headers, raw = request(local_server, "/manifest.webmanifest")
+    assert status == 200
+    assert headers["Content-Type"] == "application/manifest+json"
+    manifest = json.loads(raw)
+    assert manifest["display"] == "standalone"
+    assert manifest["scope"] == manifest["start_url"] == manifest["id"] == "./"
+    assert manifest["lang"] == "fr"
+    assert {icon["sizes"] for icon in manifest["icons"]} == {"192x192", "512x512"}
+    for icon in manifest["icons"]:
+        status, headers, png = request(
+            local_server, "/" + icon["src"].removeprefix("./")
+        )
+        assert status == 200 and headers["Content-Type"] == "image/png"
+        assert png[:8] == b"\x89PNG\r\n\x1a\n"
+        assert png[12:16] == b"IHDR"
+        width, height = struct.unpack(">II", png[16:24])
+        assert f"{width}x{height}" == icon["sizes"]
+
+
+def test_public_asset_paths_support_static_subdirectory_hosting():
+    html = (APP / "index.html").read_text()
+    assert 'href="/' not in html and 'src="/' not in html
+    assert 'href="./manifest.webmanifest"' in html
+    code = (APP / "app.js").read_text()
+    assert 'fetch("/api/patch"' not in code
+    assert 'new URL("./api/patch", import.meta.url)' in code
 
 
 @pytest.mark.parametrize(
@@ -75,6 +113,8 @@ def test_static_allowlist_serves_app_with_security_headers(local_server, path):
         "/server.py",
         "/pyproject.toml",
         "/model.test.js",
+        "/pwa.test.js",
+        "/sw.test.js",
         "/.git/config",
         "/styles.css/../../AGENTS.md",
         "/app.js%00",
@@ -211,7 +251,13 @@ def test_frontend_contracts_with_node():
     if node is None:
         pytest.skip("Node is optional for serving; required for frontend unit tests")
     result = subprocess.run(
-        [node, "--test", "model.test.js"],
+        [
+            node,
+            "--test",
+            "model.test.js",
+            "sw.test.js",
+            "pwa.test.js",
+        ],
         cwd=APP,
         capture_output=True,
         text=True,
@@ -219,3 +265,13 @@ def test_frontend_contracts_with_node():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    for asset in ["app.js", "data.js", "model.js", "pwa.js", "sw.js"]:
+        checked = subprocess.run(
+            [node, "--check", asset],
+            cwd=APP,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        assert checked.returncode == 0, checked.stdout + checked.stderr

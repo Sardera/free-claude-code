@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test model.test.js"
+    "test": "node --check app.js && node --check pwa.js && node --check sw.js && node --test *.test.js"
   },
   "keywords": ["coaching", "local", "league-of-legends"]
 }

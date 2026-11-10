@@ -34,6 +34,12 @@ ASSETS = {
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
     "/data.js": ("data.js", "text/javascript; charset=utf-8"),
     "/model.js": ("model.js", "text/javascript; charset=utf-8"),
+    "/pwa.js": ("pwa.js", "text/javascript; charset=utf-8"),
+    "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
+    "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+    "/icon-192.png": ("icon-192.png", "image/png"),
+    "/icon-512.png": ("icon-512.png", "image/png"),
+    "/icon-maskable-512.png": ("icon-maskable-512.png", "image/png"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml"),
 }
 VERSIONS_URL = "https://ddragon.leagueoflegends.com/api/versions.json"
@@ -152,6 +158,7 @@ class CoachHandler(BaseHTTPRequestHandler):
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "connect-src 'self'; img-src 'self'; font-src 'self'; "
+            "worker-src 'self'; manifest-src 'self'; "
             "object-src 'none'; frame-src 'none'; frame-ancestors 'none'; "
             "base-uri 'none'; form-action 'self'",
         )
