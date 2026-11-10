@@ -1,0 +1,11 @@
+{
+  "name": "lol-coach",
+  "version": "1.0.0",
+  "description": "Atelier local francophone de fondamentaux League of Legends",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test model.test.js"
+  },
+  "keywords": ["coaching", "local", "league-of-legends"]
+}
